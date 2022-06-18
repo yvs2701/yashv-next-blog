@@ -8,17 +8,17 @@ import { google } from 'googleapis'
 const handler = async (req, res) => {
     if (req.method === 'POST') {
         try {
-            console.log('CONNECTING TO MONGO...');
-            await connectDB();
-            console.log('CONNECTED TO MONGO.');
+            console.log('CONNECTING TO MONGO...')
+            await connectDB()
+            console.log('CONNECTED TO MONGO.')
 
-            console.log('CREATING USER...');
+            console.log('CREATING USER...')
             bcrypt.hash(req.body.password, 10, (err, hash) => {
                 if (err)
                     throw new Error(err)
                 else {
                     req.body.password = hash
-                    req.body.token = crypto.createHash("md5").update(process.env.HASH_SECRET).digest("hex")
+                    req.body.token = crypto.createHash("md5").update((Date.now() + Math.random()).toString(32)).digest("hex")
                     console.log("User password hashed and token generated.")
 
                     const user = new User(req.body)
@@ -45,7 +45,7 @@ const handler = async (req, res) => {
                             from: "Yashv-Next-Blog", // sender address
                             to: user.email, // email has already been validated as validator runs before pre('save')
                             subject: "Yashv-Next-Blog | Registration confirmation", // Subject line
-                            text: `Confirm your registeration at http://localhost:3000/auth/activate/${user.token}`, // plain text body
+                            text: `Confirm your registeration at http://localhost:3000/api/auth/activate/${user.token}`, // plain text body
                             html:
                                 `<html>
                                 <body>
@@ -60,9 +60,10 @@ const handler = async (req, res) => {
                                         To continue to our blogs, there's only one last step left!
                                     </h3>
                                     <a 
-                                        href="http://localhost:3000/auth/activate/${user.token}" 
+                                        href="http://localhost:3000/api/auth/activate/${user.token}" 
                                         style="
-                                            background-color: rgb(25, 186, 144);
+                                            background-color: rgb(0, 0, 0);
+                                            color: rgb(255, 255, 255);
                                             padding: 15px 20px;
                                             font-size: 0.875rem;
                                             border-radius: 3px; 
@@ -86,7 +87,10 @@ const handler = async (req, res) => {
                         res.status(201).json({ success: true })
                     }).catch((err) => {
                         console.error(err)
-                        res.status(500).json({ success: false, error: err })
+                        if (err.code == 11000) // duplicate User fields
+                            res.status(409).json({ success: false, message: `${Object.keys(err.keyValue)[0]} already exists`, error: err }) // error 409, conflict: Resource ALREADY EXISTS or is of older version
+                        else
+                            res.status(500).json({ success: false, error: err })
                     })
                 }
             })
