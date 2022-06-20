@@ -9,11 +9,12 @@ const handler = async (req, res) => {
     if (req.method === 'POST') {
         try {
             console.log('CONNECTING TO MONGO...')
-            await connectDB()
+            connectDB()
             console.log('CONNECTED TO MONGO.')
 
             console.log('CREATING USER...')
-            bcrypt.hash(req.body.password, 10, (err, hash) => {
+            // + prefixed before the environment variables convertes string to integer
+            bcrypt.hash(req.body.password, +process.env.SALT_ROUNDS, (err, hash) => {
                 if (err)
                     throw new Error(err)
                 else {
@@ -90,16 +91,16 @@ const handler = async (req, res) => {
                         if (err.code == 11000) // duplicate User fields
                             res.status(409).json({ success: false, message: `${Object.keys(err.keyValue)[0]} already exists`, error: err }) // error 409, conflict: Resource ALREADY EXISTS or is of older version
                         else
-                            res.status(500).json({ success: false, error: err })
+                            res.status(500).json({ success: false, message: "Some error occured!", error: err })
                     })
                 }
             })
         } catch (err) {
             console.error(err);
-            res.status(502).json({ error: err });
+            res.status(502).json({ success: false, message: "Some error occured!", error: err });
         }
     } else {
-        res.status(405).send("Cannot sign up using \'GET\'")
+        res.status(405).send({ success: false, message: "Cannot sign up using \'GET\'" })
     }
 }
 
