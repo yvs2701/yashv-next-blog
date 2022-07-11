@@ -33,48 +33,53 @@ const matchPsswd = async (user) => {
 
 const signin = async (req, res) => {
     if (req.method === 'GET') {
-        if (req.body.hasOwnProperty('jwt')) {
-            // user has sent a jwt
+        if (req.cookies.hasOwnProperty('token') && req.body.hasOwnProperty('logout') && req.body.logout) {
+            // user has sent a jwt log him out
             return new Promise((resolve, reject) => {
                 try {
-                    jsonwebtoken.verify(req.body.jwt, process.env.SECRET, async (err, user) => {
-                        if (err && err.name === 'TokenExpiredError')
-                            res.status('400').send({ success: false, message: "Token has expired. Please login with credentials!", error: err })
-                        else if (err)
-                            res.status('400').send({ success: false, error: err })
-                        else {
-                            try {
-                                const matching = await matchPsswd(user)
-                                res.status(200).send(matching)
-                            } catch (e) {
-                                console.error(err)
-                                res.status(500).send({ success: false, message: "Some error occured !", error: e })
-                                resolve()
-                            }
-                        }
+                    if (req.cookies.token == 'loggedout') {
+                        res.status(200).json({ success: true, message: 'User was already logged out !' })
                         resolve()
-                    })
+                    }
+                    else
+                        jsonwebtoken.verify(req.cookies.token, process.env.SECRET, async (err, user) => {
+                            if (err && err.name === 'TokenExpiredError')
+                                res.status('400').json({ success: false, message: "Token has expired. Please login with credentials!", error: err })
+                            else if (err)
+                                res.status('400').json({ success: false, error: err })
+                            else {
+                                res.setHeader('set-cookie', 'token=loggedout; path=/; samesite=lax; httponly;'/*Secure;'*/)
+                                res.status(200).json({ success: true, message: "User logged out!" })
+                            }
+                            resolve()
+                        })
                 } catch (err) {
                     console.error(err)
-                    res.status(500).send({ success: false, message: "Some error occured !", error: err })
+                    res.status(500).json({ success: false, message: "Some error occured !", error: err })
                     resolve()
                 }
             })
         } else if (req.body.hasOwnProperty('username') && req.body.hasOwnProperty('password')) {
             try {
                 const matching = await matchPsswd(req.body)
-                if (matching.success && req.body.hasOwnProperty('rememberme') && req.body.rememberme) {
+                if (matching.success) {
+                    // We will persist the user log in using cookies
                     const payload = { username: req.body.username, password: req.body.password }
-                    matching.jwt = jsonwebtoken.sign(payload, process.env.SECRET, { expiresIn: '28d' })
+                    const token = jsonwebtoken.sign(payload, process.env.SECRET, { expiresIn: '28d' })
+
+                    let expiry_date = new Date()
+                    expiry_date.setDate(expiry_date.getDate() + 28)
+
+                    res.setHeader('set-cookie', `token=${token}; path=/; expires=${expiry_date}; samesite=lax; httponly;`/*Secure;`*/)
                 }
-                res.status(200).send(matching)
+                res.status(200).json(matching)
             } catch (err) {
                 console.error(err)
-                res.status(500).send({ success: false, message: "Some error occured !", error: err })
+                res.status(500).json({ success: false, message: "Some error occured !", error: err })
             }
         }
-        else res.status(400).send({ success: false, message: "Username and/or password or token is missing!" })
-    } else res.status(405).send({ success: false, message: "Cannot sign up using \'POST\'" })
+        else res.status(400).json({ success: false, message: "Username and/or password or token is missing!" })
+    } else res.status(405).json({ success: false, message: "Cannot sign in using \'POST\'" })
 }
 
 export default signin

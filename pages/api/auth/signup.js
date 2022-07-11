@@ -100,7 +100,7 @@ const handler = async (req, res) => {
             res.status(502).json({ success: false, message: "Some error occured!", error: err });
         }
     } else {
-        res.status(405).send({ success: false, message: "Cannot sign up using \'GET\'" })
+        res.status(405).json({ success: false, message: "Cannot sign up using \'GET\'" })
     }
 }
 
